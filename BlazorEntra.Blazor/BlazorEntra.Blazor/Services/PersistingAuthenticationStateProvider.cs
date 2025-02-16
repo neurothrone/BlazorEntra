@@ -12,23 +12,23 @@ namespace BlazorEntra.Blazor.Services;
 internal sealed class PersistingAuthenticationStateProvider : AuthenticationStateProvider,
     IHostEnvironmentAuthenticationStateProvider, IDisposable
 {
-    private readonly PersistentComponentState persistentComponentState;
-    private readonly PersistingComponentStateSubscription subscription;
-    private Task<AuthenticationState>? authenticationStateTask;
+    private readonly PersistentComponentState _persistentComponentState;
+    private readonly PersistingComponentStateSubscription _subscription;
+    private Task<AuthenticationState>? _authenticationStateTask;
 
     public PersistingAuthenticationStateProvider(PersistentComponentState state)
     {
-        persistentComponentState = state;
-        subscription = state.RegisterOnPersisting(OnPersistingAsync, RenderMode.InteractiveWebAssembly);
+        _persistentComponentState = state;
+        _subscription = state.RegisterOnPersisting(OnPersistingAsync, RenderMode.InteractiveWebAssembly);
     }
 
-    public override Task<AuthenticationState> GetAuthenticationStateAsync() => authenticationStateTask ??
+    public override Task<AuthenticationState> GetAuthenticationStateAsync() => _authenticationStateTask ??
                                                                                throw new InvalidOperationException(
                                                                                    $"Do not call {nameof(GetAuthenticationStateAsync)} outside of the DI scope for a Razor component. Typically, this means you can call it only within a Razor component or inside another DI service that is resolved for a Razor component.");
 
     public void SetAuthenticationState(Task<AuthenticationState> task)
     {
-        authenticationStateTask = task;
+        _authenticationStateTask = task;
     }
 
     private async Task OnPersistingAsync()
@@ -43,7 +43,7 @@ internal sealed class PersistingAuthenticationStateProvider : AuthenticationStat
 
             if (userId != null && name != null)
             {
-                persistentComponentState.PersistAsJson(nameof(UserInfo), new UserInfo
+                _persistentComponentState.PersistAsJson(nameof(UserInfo), new UserInfo
                 {
                     UserId = userId,
                     Name = name,
@@ -58,6 +58,6 @@ internal sealed class PersistingAuthenticationStateProvider : AuthenticationStat
 
     public void Dispose()
     {
-        subscription.Dispose();
+        _subscription.Dispose();
     }
 }

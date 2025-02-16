@@ -3,6 +3,13 @@ using BlazorEntra.Blazor.Components;
 using BlazorEntra.Blazor.Services;
 using BlazorEntra.Shared.Models;
 using BlazorEntra.Shared.Services;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.JsonWebTokens;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+
+const string entraIdScheme = "EntraIdOpenIdConnect";
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,6 +17,28 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents()
     .AddInteractiveWebAssemblyComponents();
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = entraIdScheme;
+}).AddOpenIdConnect(entraIdScheme, options =>
+{
+    options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    // Navigate to the url in OpenID Connect metadata document link and copy the value of issuer.
+    // options.Authority = "...";
+    // options.ResponseType = OpenIdConnectResponseType.Code;
+    // options.UsePkce = true; // Set to true by default is using ResponseType.Code
+    options.Scope.Add(OpenIdConnectScope.OpenIdProfile);
+    // options.CallbackPath = new PathString("/signin-oidc");
+    // options.SignedOutCallbackPath = new PathString("/signout-callback-oidc");
+    // options.ClientId = "...";
+    // options.ClientSecret = "...";
+    options.MapInboundClaims = false;
+    options.TokenValidationParameters.NameClaimType = JwtRegisteredClaimNames.Name;
+    options.TokenValidationParameters.RoleClaimType = "role";
+    options.SaveTokens = true;
+}).AddCookie(CookieAuthenticationDefaults.AuthenticationScheme);
 
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<AuthenticationStateProvider, PersistingAuthenticationStateProvider>();
@@ -69,4 +98,51 @@ app.MapGet("/blazor/skills", () =>
     return Results.Ok(skills);
 });
 
+app.MapGet("/login", (string? returnUrl, HttpContext httpContext) =>
+{
+    // Ensure the returnUrl is valid & safe.  
+    returnUrl = ValidateUri(httpContext, returnUrl);
+    return TypedResults.Challenge(new AuthenticationProperties
+    {
+        RedirectUri = returnUrl
+    });
+}).AllowAnonymous();
+
+app.MapPost("/logout", ([FromForm] string? returnUrl, HttpContext httpContext) =>
+{
+    returnUrl = ValidateUri(httpContext, returnUrl);
+    return TypedResults.SignOut(
+        new AuthenticationProperties { RedirectUri = returnUrl },
+        [
+            CookieAuthenticationDefaults.AuthenticationScheme,
+            entraIdScheme
+        ]
+    );
+});
+
 app.Run();
+
+public partial class Program
+{
+    private static string ValidateUri(HttpContext httpContext, string? uri)
+    {
+        string basePath = string.IsNullOrEmpty(httpContext.Request.PathBase)
+            ? "/"
+            : httpContext.Request.PathBase;
+
+        if (string.IsNullOrEmpty(uri))
+        {
+            return basePath;
+        }
+        else if (!Uri.IsWellFormedUriString(uri, UriKind.Relative))
+        {
+            return new Uri(uri, UriKind.Absolute).PathAndQuery;
+        }
+        else if (uri[0] != '/')
+        {
+            return $"{basePath}{uri}";
+        }
+
+        return uri;
+    }
+}
