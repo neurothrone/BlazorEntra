@@ -1,0 +1,25 @@
+﻿<button class="btn btn-primary" @onclick="LoadAuthenticationStateAsync">Load user</button>
+
+@if (_message is not null)
+{
+    <p>@_message</p>
+}
+
+@code {
+
+    [Inject]
+    private AuthenticationStateProvider AuthenticationStateProvider { get; set; } = null!;
+
+    private string? _message;
+
+    private async Task LoadAuthenticationStateAsync()
+    {
+        var authState = await AuthenticationStateProvider
+            .GetAuthenticationStateAsync();
+        var user = authState.User;
+        _message = user.Identity is { IsAuthenticated: true }
+            ? $"{user.Identity.Name} is authenticated."
+            : "The user is not authenticated.";
+    }
+
+}

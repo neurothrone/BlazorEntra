@@ -1,0 +1,59 @@
+﻿@page "/interactive-auto"
+@rendermode InteractiveAuto
+@using Microsoft.AspNetCore.Authorization
+@using BlazorEntra.Shared.Models
+@using BlazorEntra.Shared.Services
+@using BlazorEntra.Blazor.Client.Components.Controls
+@attribute [Authorize]
+
+<h3>This component is rendered with <b>interactive auto (server & client-side) rendering</b></h3>
+
+<button class="btn btn-primary" @onclick="CallRemoteApiAsync">Call Remote API</button>
+<button class="btn btn-primary" @onclick="CallBlazorApiAsync">Call Blazor API</button>
+<AuthMessage/>
+
+@if (_skills == null)
+{
+    <p><em>No results from API calls yet...</em></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>Name</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var skill in _skills)
+            {
+                <tr>
+                    <td>@skill.Id</td>
+                    <td>@skill.Name</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+
+    [Inject]
+    private ISkillService SkillService { get; set; } = null!;
+
+    private List<Skill>? _skills;
+
+    private async Task CallRemoteApiAsync()
+    {
+        _skills = (await SkillService.GetSkillsFromApiAsync())
+            .ToList();
+    }
+
+    private async Task CallBlazorApiAsync()
+    {
+        _skills = (await SkillService.GetSkillsFromServerAsync())
+            .ToList();
+    }
+
+}
