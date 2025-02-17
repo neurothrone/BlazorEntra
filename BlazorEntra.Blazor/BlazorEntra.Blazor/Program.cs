@@ -40,6 +40,8 @@ builder.Services.AddAuthentication(options =>
     options.SaveTokens = true;
 }).AddCookie(CookieAuthenticationDefaults.AuthenticationScheme);
 
+builder.Services.AddAuthorization();
+
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<AuthenticationStateProvider, PersistingAuthenticationStateProvider>();
 
@@ -50,15 +52,16 @@ builder.Services.AddHttpClient("FromBlazorServerToWebAPI", config =>
         throw new Exception("WebAPIBaseAddress is missing.")
     );
 });
-builder.Services.AddHttpClient("BlazorServer", config =>
-{
-    config.BaseAddress = new Uri(
-        builder.Configuration["BlazorServerAPIBaseAddress"] ??
-        throw new Exception("BlazorServerAPIBaseAddress is missing.")
-    );
-});
+// builder.Services.AddHttpClient("BlazorServer", config =>
+// {
+//     config.BaseAddress = new Uri(
+//         builder.Configuration["BlazorServerAPIBaseAddress"] ??
+//         throw new Exception("BlazorServerAPIBaseAddress is missing.")
+//     );
+// });
 
 builder.Services.AddScoped<ISkillService, ServerSkillService>();
+builder.Services.AddScoped<SkillRepository>();
 
 var app = builder.Build();
 
@@ -77,6 +80,9 @@ else
 
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.UseStaticFiles();
 app.UseAntiforgery();
 
@@ -85,18 +91,7 @@ app.MapRazorComponents<App>()
     .AddInteractiveWebAssemblyRenderMode()
     .AddAdditionalAssemblies(typeof(BlazorEntra.Blazor.Client._Imports).Assembly);
 
-app.MapGet("/blazor/skills", () =>
-{
-    List<Skill> skills =
-    [
-        new() { Id = 1, Name = "Sarcasm" },
-        new() { Id = 2, Name = "Irony" },
-        new() { Id = 3, Name = "Satire" },
-        new() { Id = 4, Name = "Parody" },
-        new() { Id = 5, Name = "Wit" },
-    ];
-    return Results.Ok(skills);
-});
+app.MapGet("/blazor/skills", (SkillRepository repo) => Results.Ok((object?)repo.GetSkills())).RequireAuthorization();
 
 app.MapGet("/login", (string? returnUrl, HttpContext httpContext) =>
 {

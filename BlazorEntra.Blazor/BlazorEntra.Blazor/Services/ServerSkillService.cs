@@ -13,9 +13,14 @@ public class ServerSkillService : ISkillService
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    public ServerSkillService(IHttpClientFactory httpClientFactory)
+    private readonly SkillRepository _skillRepository;
+
+    public ServerSkillService(
+        IHttpClientFactory httpClientFactory,
+        SkillRepository skillRepository)
     {
         _httpClientFactory = httpClientFactory;
+        _skillRepository = skillRepository;
     }
 
     public Task<IEnumerable<Skill>> GetSkillsFromApiAsync()
@@ -25,7 +30,8 @@ public class ServerSkillService : ISkillService
 
     public Task<IEnumerable<Skill>> GetSkillsFromServerAsync()
     {
-        return GetSkillsAsync("BlazorServer");
+        // return GetSkillsAsync("BlazorServer");
+        return Task.FromResult(_skillRepository.GetSkills());
     }
 
     private async Task<IEnumerable<Skill>> GetSkillsAsync(string client)
