@@ -1,4 +1,7 @@
 using BlazorEntra.Shared.Models;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.JsonWebTokens;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,13 +18,26 @@ builder.Services.AddCors(options =>
         policy =>
         {
             policy.WithOrigins(
-                    "https://localhost:7002",
-                    "http://localhost:5002"
-                )
-                .AllowAnyMethod()
-                .AllowAnyHeader();
+                "https://localhost:7002",
+                "http://localhost:5002"
+            );
         });
 });
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.Authority = "https://login.microsoftonline.com/6afcb002-8d80-4456-b725-476445b8e55d/v2.0";
+        options.Audience = "api://0be1ffd3-cb67-4654-a028-22f93726afe1";
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            NameClaimType = JwtRegisteredClaimNames.Name,
+            RoleClaimType = "role",
+            ValidIssuer = "https://sts.windows.net/6afcb002-8d80-4456-b725-476445b8e55d/"
+        };
+    });
+builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
@@ -34,6 +50,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowWASMOrigin");
 app.UseHttpsRedirection();
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapGet("/api/skills", () =>
 {
@@ -50,6 +68,6 @@ app.MapGet("/api/skills", () =>
         new() { Id = 9, Name = "CSS" },
     ];
     return Results.Ok(skills);
-});
+}).RequireAuthorization();
 
 app.Run();

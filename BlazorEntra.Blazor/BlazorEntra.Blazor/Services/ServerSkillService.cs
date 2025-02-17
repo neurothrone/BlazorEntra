@@ -23,29 +23,11 @@ public class ServerSkillService : ISkillService
         _skillRepository = skillRepository;
     }
 
-    public Task<IEnumerable<Skill>> GetSkillsFromApiAsync()
+    public async Task<IEnumerable<Skill>> GetSkillsFromApiAsync()
     {
-        return GetSkillsAsync("FromBlazorServerToWebAPI");
-    }
-
-    public Task<IEnumerable<Skill>> GetSkillsFromServerAsync()
-    {
-        // return GetSkillsAsync("BlazorServer");
-        return Task.FromResult(_skillRepository.GetSkills());
-    }
-
-    private async Task<IEnumerable<Skill>> GetSkillsAsync(string client)
-    {
-        var httpClient = _httpClientFactory.CreateClient(client);
-
-        var response = await httpClient.SendAsync(
-            new HttpRequestMessage(
-                HttpMethod.Get,
-                client == "FromBlazorServerToWebAPI"
-                    ? "api/skills"
-                    : "blazor/skills"
-            )
-        );
+        var httpClient = _httpClientFactory.CreateClient("FromBlazorServerToWebAPI");
+        var requestMessage = new HttpRequestMessage(HttpMethod.Get, "api/skills");
+        var response = await httpClient.SendAsync(requestMessage);
         response.EnsureSuccessStatusCode();
 
         return await JsonSerializer.DeserializeAsync<List<Skill>>(
@@ -53,5 +35,10 @@ public class ServerSkillService : ISkillService
             _jsonSerializerOptions,
             CancellationToken.None
         ) ?? [];
+    }
+
+    public Task<IEnumerable<Skill>> GetSkillsFromServerAsync()
+    {
+        return Task.FromResult(_skillRepository.GetSkills());
     }
 }

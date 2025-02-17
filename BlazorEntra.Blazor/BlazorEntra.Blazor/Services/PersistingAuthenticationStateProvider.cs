@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using BlazorEntra.Blazor.Client;
 using BlazorEntra.Blazor.Client.Models;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -55,6 +54,7 @@ internal sealed class PersistingAuthenticationStateProvider : AuthenticationStat
     private string GetRequiredClaim(ClaimsPrincipal principal, string claimType) =>
         principal.FindFirst(claimType)?.Value ??
         throw new InvalidOperationException($"Could not find required '{claimType}' claim.");
+
 
     public void Dispose()
     {

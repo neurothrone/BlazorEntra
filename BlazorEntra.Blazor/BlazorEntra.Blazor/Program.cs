@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components.Authorization;
 using BlazorEntra.Blazor.Components;
+using BlazorEntra.Blazor.HelperEvents;
 using BlazorEntra.Blazor.Services;
-using BlazorEntra.Shared.Models;
 using BlazorEntra.Shared.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 
-const string entraIdScheme = "EntraIdOpenIdConnect";
+const string entraIdScheme = "EntraIDOpenIDConnect";
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +17,34 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents()
     .AddInteractiveWebAssemblyComponents();
+
+builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddScoped<AuthenticationStateProvider, PersistingAuthenticationStateProvider>();
+
+builder.Services.AddScoped<ISkillService, ServerSkillService>();
+builder.Services.AddScoped<SkillRepository>();
+
+// Required by Duende.AccessTokenManagement.OpenIdConnect.
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddOpenIdConnectAccessTokenManagement()
+    .AddBlazorServerAccessTokenManagement<CustomServerSideTokenStore>();
+builder.Services.AddTransient<CustomTokenStorageOidcEvents>();
+
+builder.Services.AddHttpClient("FromBlazorServerToWebAPI", config =>
+{
+    config.BaseAddress = new Uri(
+        builder.Configuration["WebAPIBaseAddress"] ??
+        throw new Exception("WebAPIBaseAddress is missing.")
+    );
+}).AddUserAccessTokenHandler(); // Required by Duende.AccessTokenManagement.OpenIdConnect.
+
+// builder.Services.AddHttpClient("BlazorServer", config =>
+// {
+//     config.BaseAddress = new Uri(
+//         builder.Configuration["BlazorServerAPIBaseAddress"] ??
+//         throw new Exception("BlazorServerAPIBaseAddress is missing.")
+//     );
+// });
 
 builder.Services.AddAuthentication(options =>
 {
@@ -30,6 +58,8 @@ builder.Services.AddAuthentication(options =>
     // options.ResponseType = OpenIdConnectResponseType.Code;
     // options.UsePkce = true; // Set to true by default is using ResponseType.Code
     options.Scope.Add(OpenIdConnectScope.OpenIdProfile);
+    options.Scope.Add("api://0be1ffd3-cb67-4654-a028-22f93726afe1/FullAccess");
+    options.Scope.Add("offline_access");
     // options.CallbackPath = new PathString("/signin-oidc");
     // options.SignedOutCallbackPath = new PathString("/signout-callback-oidc");
     // options.ClientId = "...";
@@ -38,30 +68,10 @@ builder.Services.AddAuthentication(options =>
     options.TokenValidationParameters.NameClaimType = JwtRegisteredClaimNames.Name;
     options.TokenValidationParameters.RoleClaimType = "role";
     options.SaveTokens = true;
+    options.EventsType = typeof(CustomTokenStorageOidcEvents);
 }).AddCookie(CookieAuthenticationDefaults.AuthenticationScheme);
 
 builder.Services.AddAuthorization();
-
-builder.Services.AddCascadingAuthenticationState();
-builder.Services.AddScoped<AuthenticationStateProvider, PersistingAuthenticationStateProvider>();
-
-builder.Services.AddHttpClient("FromBlazorServerToWebAPI", config =>
-{
-    config.BaseAddress = new Uri(
-        builder.Configuration["WebAPIBaseAddress"] ??
-        throw new Exception("WebAPIBaseAddress is missing.")
-    );
-});
-// builder.Services.AddHttpClient("BlazorServer", config =>
-// {
-//     config.BaseAddress = new Uri(
-//         builder.Configuration["BlazorServerAPIBaseAddress"] ??
-//         throw new Exception("BlazorServerAPIBaseAddress is missing.")
-//     );
-// });
-
-builder.Services.AddScoped<ISkillService, ServerSkillService>();
-builder.Services.AddScoped<SkillRepository>();
 
 var app = builder.Build();
 
@@ -69,7 +79,6 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseWebAssemblyDebugging();
-    app.UseMigrationsEndPoint();
 }
 else
 {
@@ -91,7 +100,9 @@ app.MapRazorComponents<App>()
     .AddInteractiveWebAssemblyRenderMode()
     .AddAdditionalAssemblies(typeof(BlazorEntra.Blazor.Client._Imports).Assembly);
 
-app.MapGet("/blazor/skills", (SkillRepository repo) => Results.Ok((object?)repo.GetSkills())).RequireAuthorization();
+app.MapGet("/blazor/skills", (SkillRepository repo) =>
+    Results.Ok(repo.GetSkills())
+).RequireAuthorization();
 
 app.MapGet("/login", (string? returnUrl, HttpContext httpContext) =>
 {
@@ -114,6 +125,10 @@ app.MapPost("/logout", ([FromForm] string? returnUrl, HttpContext httpContext) =
         ]
     );
 });
+
+app.MapGet("/forward-to-web-api/skills", async (ISkillService skillService) =>
+    Results.Ok(await skillService.GetSkillsFromApiAsync())
+).RequireAuthorization();
 
 app.Run();
 

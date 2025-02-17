@@ -4,11 +4,11 @@
         <TargetFramework>net8.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
-        <UserSecretsId>aspnet-BlazorEntra.Blazor-18aadeef-ed35-44bc-883e-6302735b7d5d</UserSecretsId>
     </PropertyGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\BlazorEntra.Blazor.Client\BlazorEntra.Blazor.Client.csproj"/>
+        <PackageReference Include="Duende.AccessTokenManagement.OpenIdConnect" Version="3.1.1" />
         <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="8.0.13" />
         <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="8.0.13"/>
         <PackageReference Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" Version="8.0.13"/>
